@@ -291,10 +291,13 @@ __pycache__/
 
 ## 7. Reproducing the environment on a rented server
 
-Freeze the environment locally after changes:
+Freeze the environment locally after changes. `uv pip freeze` drops two things that a Linux install needs, so the first two lines and the Windows-only marker are re-added:
 
 ```powershell
-uv pip freeze > requirements.txt
+$freeze = uv pip freeze
+@("# torch/torchvision below are CUDA 13.2 builds from this index; see PROJECT_PLAN.md section 7",
+  "--extra-index-url https://download.pytorch.org/whl/cu132") +
+  ($freeze -replace '^(pywinpty==.*)$', "`$1 ; sys_platform == 'win32'") | Set-Content -Encoding utf8 requirements.txt
 git add .
 git commit -m "Update environment"
 git push
@@ -308,11 +311,13 @@ source ~/.bashrc
 git clone <repo-url> snn-cd && cd snn-cd
 uv venv --python 3.12
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt --index-strategy unsafe-best-match
 python check_env.py
+python -m src.selfcheck   # data, every model/encoding, toy-batch fitting, checkpoints
+python -m pytest          # automated tests on synthetic data, ~10 s
 ```
 
-> `requirements.txt` produced on Windows pins the CUDA build of PyTorch via the index URL used at install time. If the server's driver needs a different CUDA build, reinstall `torch`/`torchvision` with the matching `--index-url` before installing the rest.
+> `requirements.txt` pins the CUDA 13.2 build of PyTorch and names its index on the `--extra-index-url` line. `--index-strategy unsafe-best-match` is needed because uv otherwise takes every package only from the first index that has it, and the PyTorch index also mirrors packages such as `certifi` at older versions. If the server's driver needs a different CUDA build, reinstall `torch`/`torchvision` with the matching `--index-url` before installing the rest.
 
 ---
 
