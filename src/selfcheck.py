@@ -143,8 +143,9 @@ def run_checks(
         (f"forward+backward: {m}/{e}", lambda m=m, e=e: check_forward_backward(m, e, device)) for m, e in COMBOS
     ]
     if overfit:
+        # budgets for the default (parameter-free, nearest) upsampling; the
         # surrogate-gradient SNN fits the toy batch markedly slower than the CNN
-        overfit_steps = {"snn": 150, "baseline": 60}
+        overfit_steps = {"snn": 150, "baseline": 150}
         checks += [
             (f"overfit toy batch: {m}", lambda m=m, n=n: check_overfit(m, device, steps=n))
             for m, n in overfit_steps.items()

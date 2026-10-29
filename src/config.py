@@ -38,6 +38,10 @@ class ModelConfig:
     bottleneck: int = 256
     beta: float = 0.9  # LIF membrane decay (SNN models only)
     fusion_mode: str = "absdiff"  # "absdiff" | "concat" | "both" -- see FeatureFusion
+    # decoder upsampling: "nearest" keeps spike maps binary, so every SNN decoder
+    # conv is driven by spikes (accumulates only); "transpose" (learnable
+    # ConvTranspose2d) emits real values that cost a full MAC at every time step
+    upsample: str = "nearest"
 
 
 @dataclass

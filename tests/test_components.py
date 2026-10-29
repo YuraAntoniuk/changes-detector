@@ -42,13 +42,15 @@ def test_encode_batch_dispatch_and_spectral_guard():
         encode_batch(img, img, cfg)
 
 
+@pytest.mark.parametrize("upsample", ["nearest", "transpose"])
 @pytest.mark.parametrize("model_kind,encoding", [
     ("snn", "rate"), ("snn", "difference"), ("baseline", "rate"), ("baseline", "difference"),
 ])
-def test_every_model_runs_forward_and_backward(model_kind, encoding):
+def test_every_model_runs_forward_and_backward(model_kind, encoding, upsample):
     cfg = TrainConfig(model=model_kind)
     cfg.encoding.kind = encoding
     cfg.encoding.time_steps = 2
+    cfg.model_cfg.upsample = upsample
     model = build_model(cfg)
     img1, img2 = torch.rand(2, 2, 3, 32, 32)
     label = (torch.rand(2, 1, 32, 32) > 0.9).float()
@@ -99,3 +101,31 @@ def test_dataset_tiles_eval_split_and_crops_train_split(levir_root):
     train = LEVIRCDDataset(levir_root, "train", patch_size=PATCH_SIZE, train=True, crops_per_image=3)
     assert len(train) == 4 * 3
     assert train[0][0].shape == (3, PATCH_SIZE, PATCH_SIZE)
+
+
+@pytest.mark.parametrize("encoding", ["rate", "difference"])
+def test_snn_with_nearest_upsampling_is_driven_by_spikes_only(encoding):
+    # every conv input must be binary: no multiply-accumulates anywhere
+    cfg = TrainConfig(model="snn")
+    cfg.encoding.kind = encoding
+    cfg.encoding.time_steps = 2
+    model = build_model(cfg).eval()
+    ops = OpCounter(model)
+    with torch.no_grad():
+        forward_pass(model, torch.rand(1, 3, 32, 32), torch.rand(1, 3, 32, 32), cfg)
+    ops.remove()
+    s = ops.summary(1, time_steps=2)
+    assert s["mac_per_sample"] == 0
+    assert s["energy_ratio_vs_ann"] < 1
+
+
+def test_transpose_upsampling_feeds_real_values_to_the_decoder():
+    cfg = TrainConfig(model="snn")
+    cfg.encoding.time_steps = 2
+    cfg.model_cfg.upsample = "transpose"
+    model = build_model(cfg).eval()
+    ops = OpCounter(model)
+    with torch.no_grad():
+        forward_pass(model, torch.rand(1, 3, 32, 32), torch.rand(1, 3, 32, 32), cfg)
+    ops.remove()
+    assert all(ops.stats[f"decoder_stages.{i}.block.conv"]["mac"] > 0 for i in range(4))

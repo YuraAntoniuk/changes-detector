@@ -9,8 +9,9 @@ class FCSiamDiff(nn.Module):
     skip connections fused by absolute difference, U-Net decoder.
 
     Deviates from the original paper's SegNet-style index-based unpooling:
-    uses plain maxpool/transposed-conv instead, so down/up-sampling mechanics
-    match the SNN counterpart for a controlled comparison.
+    uses plain maxpool and the same `upsample` mode as the SNN, so
+    down/up-sampling mechanics match the SNN counterpart for a controlled
+    comparison.
     """
 
     def __init__(
@@ -20,6 +21,7 @@ class FCSiamDiff(nn.Module):
         bottleneck: int = 256,
         use_bn: bool = True,
         fusion_mode: str = "absdiff",
+        upsample: str = "nearest",
     ):
         super().__init__()
         block_factory = lambda i, o: ConvBlock(i, o, use_bn=use_bn)
@@ -30,7 +32,7 @@ class FCSiamDiff(nn.Module):
         skip_channels = tuple(self.fusion.out_channels(c) for c in channels)
         decoder_in_ch = self.fusion.out_channels(bottleneck)
         self.decoder_stages = build_decoder(
-            channels, skip_channels, decoder_in_ch, block_factory, spiking=False
+            channels, skip_channels, decoder_in_ch, block_factory, spiking=False, upsample=upsample
         )
         self.head = nn.Conv2d(channels[0], 1, 1)
 
@@ -64,13 +66,16 @@ class FCEF(nn.Module):
         channels: tuple[int, ...] = (16, 32, 64, 128),
         bottleneck: int = 256,
         use_bn: bool = True,
+        upsample: str = "nearest",
     ):
         super().__init__()
         block_factory = lambda i, o: ConvBlock(i, o, use_bn=use_bn)
         self.encoder_stages, self.bottleneck_block = build_encoder(
             2 * in_ch, channels, bottleneck, block_factory, spiking=False
         )
-        self.decoder_stages = build_decoder(channels, channels, bottleneck, block_factory, spiking=False)
+        self.decoder_stages = build_decoder(
+            channels, channels, bottleneck, block_factory, spiking=False, upsample=upsample
+        )
         self.head = nn.Conv2d(channels[0], 1, 1)
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:

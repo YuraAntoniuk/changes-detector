@@ -23,6 +23,7 @@ def parse_args() -> tuple[TrainConfig, Path | None]:
     p.add_argument("--time-steps", type=int, default=defaults.encoding.time_steps)
     p.add_argument("--diff-threshold", type=float, default=defaults.encoding.diff_threshold)
     p.add_argument("--beta", type=float, default=defaults.model_cfg.beta)
+    p.add_argument("--upsample", choices=["nearest", "transpose"], default=defaults.model_cfg.upsample)
     p.add_argument("--patch-size", type=int, default=defaults.data.patch_size)
     p.add_argument("--crops-per-image", type=int, default=defaults.data.crops_per_image)
     p.add_argument("--batch-size", type=int, default=defaults.batch_size)
@@ -64,6 +65,7 @@ def parse_args() -> tuple[TrainConfig, Path | None]:
     cfg.encoding.time_steps = args.time_steps
     cfg.encoding.diff_threshold = args.diff_threshold
     cfg.model_cfg.beta = args.beta
+    cfg.model_cfg.upsample = args.upsample
     cfg.run_name = args.run_name or f"{cfg.model}_{cfg.encoding.kind}_{int(time.time())}"
     return cfg, Path(args.resume) if args.resume else None
 

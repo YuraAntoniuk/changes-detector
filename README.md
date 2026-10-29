@@ -49,6 +49,7 @@ A full 1024×1024 scene takes about 3 s on an RTX 4050. On CPU, use the 256/512 
 python train.py --model snn --encoding rate --run-name snn_rate          # Siamese spiking U-Net
 python train.py --model baseline --run-name baseline                     # FC-Siam-diff CNN
 python train.py --model snn --encoding difference --run-name snn_diff    # event-style encoding, single stream
+python train.py --model snn --upsample transpose --run-name snn_tconv     # ablation: learnable (non-spiking) upsampling
 python train.py --resume checkpoints/snn_rate/last.pt                    # continue an interrupted run
 
 python evaluate.py --checkpoint checkpoints/snn_rate/best.pt --split test --per-layer
@@ -78,6 +79,6 @@ tests/              pytest suite on synthetic data
 ## Status and known limitations
 
 - **First test run** (`snn` + rate coding, T=8, 128 px patches, 25 epochs, RTX 4050): test F1 0.44, IoU 0.28. That's far below typical LEVIR-CD CNN results (F1 ≈ 0.85+), and no CNN baseline has been trained here yet. Tuning the decision threshold doesn't help: even the best threshold chosen on the test set itself only reaches F1 0.445.
-- **The energy estimate currently favors the ANN (SNN/ANN ≈ 3.7).** The decoder's `ConvTranspose2d` upsampling outputs real values at every time step, so the decoder convolutions count as multiply-accumulates rather than spike-driven accumulates. Making upsampling spike-preserving is the next architectural fix.
+- **Decoder upsampling is now spike-preserving** (`--upsample nearest`, the default for both the SNN and the baseline). The first run used `ConvTranspose2d`, whose real-valued output made every decoder convolution a multiply-accumulate at each time step, so the SNN came out ≈3.7× *more* expensive than the ANN. With nearest upsampling the SNN performs no multiply-accumulates at all, and its energy ratio is ≈ 1.57 × (average input spike rate) at T=8. The first run's spike rates would give ≈0.3–0.4, but this needs confirming with a trained model. The trade-off is that the model is smaller (0.98M parameters instead of 1.33M) and fits a toy task more slowly. Old checkpoints still load with `transpose`, and `--upsample transpose` reproduces the old architecture.
 - **Predictions show 128 px tile seams,** because the model only sees one patch of context at a time. Overlapping tiles or larger patches would help.
 - **Spectral-index encoding** is implemented but needs multispectral data (OSCD / Sentinel-2). LEVIR-CD is RGB only.

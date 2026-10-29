@@ -77,12 +77,29 @@ class EncoderStage(nn.Module):
 
 
 class DecoderStage(nn.Module):
-    """One U-Net upsampling level: upsample, concat skip, then block."""
+    """One U-Net upsampling level: upsample, concat skip, then block.
 
-    def __init__(self, in_ch: int, skip_ch: int, out_ch: int, block_factory, spiking: bool):
+    upsample="nearest" repeats each value 2x2, so a binary spike map stays
+    binary; "transpose" is a learnable ConvTranspose2d with real-valued output.
+    """
+
+    def __init__(
+        self,
+        in_ch: int,
+        skip_ch: int,
+        out_ch: int,
+        block_factory,
+        spiking: bool,
+        upsample: Literal["nearest", "transpose"] = "nearest",
+    ):
         super().__init__()
         self.spiking = spiking
-        self.up = nn.ConvTranspose2d(in_ch, in_ch, 2, stride=2)
+        if upsample == "nearest":
+            self.up = nn.Upsample(scale_factor=2, mode="nearest")
+        elif upsample == "transpose":
+            self.up = nn.ConvTranspose2d(in_ch, in_ch, 2, stride=2)
+        else:
+            raise ValueError(f"unknown upsample mode {upsample!r}")
         self.block = block_factory(in_ch + skip_ch, out_ch)
 
     def forward(self, x, skip, mem=None):
@@ -109,11 +126,12 @@ def build_decoder(
     decoder_in_ch: int,
     block_factory,
     spiking: bool,
+    upsample: str = "nearest",
 ):
     stages = nn.ModuleList()
     prev = decoder_in_ch
     for ch, skip_ch in zip(reversed(channels), reversed(skip_channels)):
-        stages.append(DecoderStage(prev, skip_ch, ch, block_factory, spiking))
+        stages.append(DecoderStage(prev, skip_ch, ch, block_factory, spiking, upsample))
         prev = ch
     return stages
 

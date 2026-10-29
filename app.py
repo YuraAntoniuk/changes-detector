@@ -142,7 +142,8 @@ def checkpoint_markdown(choice: str) -> str:
     _, cfg, meta = cached_model(choice)
     head = (
         f"**{cfg.model} / {cfg.encoding.kind} encoding**, T={cfg.encoding.time_steps}, "
-        f"patch {cfg.data.patch_size}px, channels {cfg.model_cfg.channels}"
+        f"patch {cfg.data.patch_size}px, channels {cfg.model_cfg.channels}, "
+        f"{cfg.model_cfg.upsample} upsampling"
     )
     if not meta:
         return head + "  \nRandom weights: output is meaningless, but every stage of the pipeline runs."

@@ -45,6 +45,7 @@ class SiameseSpikingUNet(nn.Module):
         beta: float = 0.9,
         use_bn: bool = True,
         fusion_mode: str = "absdiff",
+        upsample: str = "nearest",
         use_checkpointing: bool = False,
     ):
         super().__init__()
@@ -57,7 +58,7 @@ class SiameseSpikingUNet(nn.Module):
         skip_channels = tuple(self.fusion.out_channels(c) for c in channels)
         decoder_in_ch = self.fusion.out_channels(bottleneck)
         self.decoder_stages = build_decoder(
-            channels, skip_channels, decoder_in_ch, block_factory, spiking=True
+            channels, skip_channels, decoder_in_ch, block_factory, spiking=True, upsample=upsample
         )
         self.head = nn.Conv2d(channels[0], 1, 1)
 
@@ -122,6 +123,7 @@ class SpikingUNet(nn.Module):
         bottleneck: int = 256,
         beta: float = 0.9,
         use_bn: bool = True,
+        upsample: str = "nearest",
         use_checkpointing: bool = False,
     ):
         super().__init__()
@@ -130,7 +132,9 @@ class SpikingUNet(nn.Module):
         self.encoder_stages, self.bottleneck_block = build_encoder(
             in_ch, channels, bottleneck, block_factory, spiking=True
         )
-        self.decoder_stages = build_decoder(channels, channels, bottleneck, block_factory, spiking=True)
+        self.decoder_stages = build_decoder(
+            channels, channels, bottleneck, block_factory, spiking=True, upsample=upsample
+        )
         self.head = nn.Conv2d(channels[0], 1, 1)
 
     def _step(self, x, enc_mems, bott_mem, dec_mems):

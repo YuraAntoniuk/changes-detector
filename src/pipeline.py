@@ -20,7 +20,7 @@ _MODEL_BUILDERS = {
 def build_model(cfg: TrainConfig) -> torch.nn.Module:
     siamese_cls, single_stream_cls = _MODEL_BUILDERS[cfg.model]
     mc = cfg.model_cfg
-    kwargs = {"channels": mc.channels, "bottleneck": mc.bottleneck}
+    kwargs = {"channels": mc.channels, "bottleneck": mc.bottleneck, "upsample": mc.upsample}
     if cfg.model == "snn":
         kwargs["beta"] = mc.beta
         kwargs["use_checkpointing"] = cfg.use_checkpointing
@@ -64,4 +64,9 @@ def load_checkpoint(path: str | Path, map_location="cpu") -> dict:
     cfg = ckpt.get("config")
     if cfg is not None:
         cfg.data.root = str(cfg.data.root)
+        # checkpoints from before ModelConfig.upsample existed were trained with
+        # transposed-conv upsampling; without this they would pick up the new
+        # class default and no longer match their weights
+        if "upsample" not in vars(cfg.model_cfg):
+            cfg.model_cfg.upsample = "transpose"
     return ckpt

@@ -57,3 +57,13 @@ def test_checkpoint_from_another_os_loads():
     loaded = load_checkpoint(io.BytesIO(buf.getvalue()))
     assert isinstance(loaded["config"].data.root, str)
     assert loaded["config"].data.root.replace("\\", "/") == "some/data/root"
+
+
+def test_checkpoint_saved_before_upsample_option_keeps_transpose_decoder():
+    old_cfg = TrainConfig()
+    del vars(old_cfg.model_cfg)["upsample"]  # as pickled before the field existed
+    new_cfg = TrainConfig()
+    for cfg, expected in ((old_cfg, "transpose"), (new_cfg, "nearest")):
+        buf = io.BytesIO()
+        torch.save({"config": cfg}, buf)
+        assert load_checkpoint(io.BytesIO(buf.getvalue()))["config"].model_cfg.upsample == expected
